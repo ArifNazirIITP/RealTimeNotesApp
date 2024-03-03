@@ -23,7 +23,7 @@ app.use("/api", userRouter);
 app.use("/api", notesRouter);
 app.use("", defaultRouter);
 
-cron.schedule("*/15 * * * *", () =>
+cron.schedule("*/14 * * * *", () =>
 {
     console.log("Sending scheduled request at", new Date().toLocaleDateString(), "at", `${new Date().getHours()}:${new Date().getMinutes()}`);
     request('https://hack-o-rama.onrender.com/ping', function (error, response, body)
