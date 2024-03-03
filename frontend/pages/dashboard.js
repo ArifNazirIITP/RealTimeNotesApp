@@ -17,18 +17,22 @@ import { Outfit } from 'next/font/google';
 
 
 const outfit = Outfit({ subsets: ['latin'] });
-const Dashboard = () => {
+const Dashboard = () =>
+{
 
     const router = useRouter();
     const { user, setUser, signOut } = UserAuth();
     const { notes, category, setNotes } = useNotesStore();
     const [notesData, setNotesData] = useState([]);
 
-    useEffect(() => {
+    useEffect(() =>
+    {
         console.log(user);
-        const fetchData = async () => {
+        const fetchData = async () =>
+        {
             console.log(user);
-            if (user) {
+            if (user)
+            {
                 const res = await axios.get(`${publicUrl()}/get-notes/${user.uid}`);
                 const data = await res.data;
                 console.log(data);
@@ -40,9 +44,11 @@ const Dashboard = () => {
         fetchData();
     }, []);
 
-    const handleNewNote = async () => {
+    const handleNewNote = async () =>
+    {
         const docId = Math.floor(Math.random() * 10000000);
-        try {
+        try
+        {
             const res = await axios.post(`${publicUrl()}/note`, {
                 docId: docId.toString(),
                 title: "New Note",
@@ -53,7 +59,8 @@ const Dashboard = () => {
             });
             console.log(res);
             router.push(`/edit/${docId}`);
-        } catch (error) {
+        } catch (error)
+        {
             console.log(error);
             return;
 
@@ -62,13 +69,15 @@ const Dashboard = () => {
 
 
     //handle filter
-    useEffect(() => {
+    useEffect(() =>
+    {
         if (!category) return setNotesData(notes);
-        const filterNotes = async () => {
+        const filterNotes = async () =>
+        {
             //filter notes array 
             const filteredNotes = await notes.filter((note) => note.category === category.title);
             setNotesData(filteredNotes);
-            console.log("Data From Server")
+            console.log("Data From Server");
             console.log(notes);
         };
         filterNotes();
@@ -97,8 +106,9 @@ const Dashboard = () => {
                                     </div>
                                 </button>
                                 {
-                                    notesData.map((note) => {
-                                        return <Card key={note._id} id={note.docId} category={note.category} title={note.title} content={note.content[1].content.text} timestamp={note.timestamp} displayName={user.displayName} />;
+                                    notesData.map((note) =>
+                                    {
+                                        return <Card key={note._id} id={note.docId} category={note.category} title={note.title} content={note.content[1].content.text} timestamp={note.timestamp} displayName={user.displayName} preview={note.preview} />;
                                     })
                                 }
                             </div>

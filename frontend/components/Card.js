@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 
-const Card = ({ id, category, title, content, timestamp, displayName }) => {
+const Card = ({ id, category, title, preview, timestamp, displayName }) => {
     // const date = new Date(timestamp);
     const date = new Date().toLocaleDateString();
     return (
@@ -19,7 +19,7 @@ const Card = ({ id, category, title, content, timestamp, displayName }) => {
                     <h2 className='text-lg font-semibold'>{title || "Lorem ipsum dolor sit amet consectetur."}</h2>
                 </div>
                 <div className="note-body mt-2">
-                    <p className='text-sm text-gray-600 dark:text-gray-300 line-clamp-2 '>{content || "Lorem ipsum dolor sit amet consectetur."}</p>
+                    <p className='text-sm text-gray-600 dark:text-gray-300 line-clamp-2 '>{preview || "Lorem ipsum dolor sit amet consectetur."}</p>
                 </div>
                 <hr className='my-3' />
                 <div className="flex items-center justify-between">
