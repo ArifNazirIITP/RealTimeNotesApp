@@ -9,8 +9,7 @@ import EditorSidebar from "./EditorSidebar";
 import EditorInfo from "./EditorInfo";
 import EditorNav from "./EditorNav";
 import { HiDotsVertical } from "react-icons/hi";
-
-
+import YPartyKitProvider from "y-partykit/provider";
 import { BlockNoteView, SideMenu, useBlockNote, Theme, darkDefaultTheme } from "@blocknote/react";
 import "@blocknote/core/style.css";
 import * as Y from "yjs";
@@ -42,9 +41,14 @@ export default function Editor({ data, id })
     });
     // console.log("initData", initData);
     const doc = new Y.Doc();
-    const provider = new WebsocketProvider(`wss://websocket-im9l.onrender.com`, `room-${id}`, doc);
+    //     const provider = new WebsocketProvider(`wss://websocket-im9l.onrender.com`, `room-${id}`, doc);
 
+    const provider = new YPartyKitProvider("https://frontend-party.techymt.partykit.dev", `room-${id}`, doc);
 
+    provider.on('synced', synced =>
+    {
+        console.log('synced', synced);
+    });
 
     const editor = useBlockNote({
         initialContent: initData,
