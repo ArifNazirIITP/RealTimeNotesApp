@@ -82,13 +82,14 @@ const updateNote = async (req, res) =>
   try
   {
     const noteId = req.params.id;
-    const { title, content, category, tags } = req.body;
+    const { title, content, category, tags, preview } = req.body;
 
     const existingNote = await Note.findOneAndUpdate({ "docId": noteId }, {
       title: title,
       content: content,
       category: category,
       tags: tags,
+      preview: preview,
       timestamp: Date.now()
     });
 
