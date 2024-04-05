@@ -37,9 +37,6 @@ const getNoteDetails = async (req, res) =>
   try
   {
     const { id: noteId } = req.params;
-
-
-
     const note = await Note.find({ "docId": `${noteId}` });
 
     if (!note)
@@ -82,9 +79,10 @@ const updateNote = async (req, res) =>
   try
   {
     const noteId = req.params.id;
-    const { title, content, category, tags } = req.body;
+    const { title, content, category, tags, uid } = req.body;
 
     const existingNote = await Note.findOneAndUpdate({ "docId": noteId }, {
+      uid: uid,
       title: title,
       content: content,
       category: category,
@@ -149,7 +147,7 @@ const addNoteFromPageTalk = async (req, res) =>
     res.status(201).json({
       message: 'created a new note',
       url: `https://impetus-notes-sync.vercel.app/pagetalk/${docId}`
-    
+
     });
   } catch (error)
   {
@@ -157,6 +155,8 @@ const addNoteFromPageTalk = async (req, res) =>
     res.status(500).json({ message: 'Internal Server Error', error: error });
   }
 };
+
+
 
 
 
