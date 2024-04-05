@@ -157,6 +157,40 @@ const addNoteFromPageTalk = async (req, res) =>
 };
 
 
+const addNoteFromVoiceSync = async (req, res) =>
+{
+  try
+  {
+    const { content, user_id } = req.body;
+    if (!user_id || !content)
+    {
+      return res.status(400).json({ message: 'Title, user_id, and owner are required' });
+    }
+
+    const docId = Math.floor(Math.random() * 10000000);
+    const newNote = new Note({
+      docId: docId.toString(),
+      uid: user_id,
+      title: 'New Note',
+      content: content,
+      category: 'frontend',
+      tags: ['tag'],
+      timestamp: Date.now()
+    });
+
+    const savedNote = await newNote.save();
+
+    res.status(201).json({
+      message: 'created a new note',
+      url: `https://impetus-notes-sync.vercel.app/voicesync/${docId}`
+
+    });
+  } catch (error)
+  {
+    console.error('Error creating note:', error);
+    res.status(500).json({ message: 'Internal Server Error', error: error });
+  }
+}
 
 
 
@@ -166,5 +200,6 @@ module.exports = {
   deleteNote,
   updateNote,
   getNotesByOwner,
-  addNoteFromPageTalk
+  addNoteFromPageTalk,
+  addNoteFromVoiceSync
 };
