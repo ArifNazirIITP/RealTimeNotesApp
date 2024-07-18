@@ -4,12 +4,12 @@
 
 **Note Sync** is an interactive web application built using continue
 
-## 2. Collaborators - (TechWing)
+## 2. Collaborators  
    1. Yadhnesh Gangurde
    2. Mustafa Truckwala
    3. Ayush Bulbule
    4. Khushi Nikam
-
+      
 ## 3. Tech Stack
 ![ReactJS](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB) (Next Js)
 
@@ -67,4 +67,4 @@ Clone the repo `git clone https://github.com/Ayush-Bulbule/FashionStore/`
 
 
 ## 7. Deployment
-Project is deployed at:[ https://kanban-board-ayush.vercel.app/](https://note-sync-techwing.vercel.app/) 
+Project is deployed at:[NoteSync](https://note-sync-techwing.vercel.app/) 

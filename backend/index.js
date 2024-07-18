@@ -14,8 +14,17 @@ const app = express();
 //create db connection
 connectDB();
 
-app.use(cors());
 app.use(express.json());
+app.use(cors({
+    origin: "http://localhost:3000"
+}));
+
+//allow 3000
+// corsOptions = {
+//     origin: "http://localhost:3000"
+// }
+
+// app.use(cors(corsOptions));
 
 
 // //
