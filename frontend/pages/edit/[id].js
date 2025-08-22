@@ -19,7 +19,6 @@ function Edit() {
     useEffect(() => {
         const fetchData = async () => {
             const res = await axios.get(`${publicUrl()}/note/${id}`);
-            // console.log("Res", res);
 
             const data = await res.data[0];
             console.log(data);
@@ -38,7 +37,7 @@ function Edit() {
 
 export async function getServerSideProps(context) {
     return {
-        props: {}, // will be passed to the page component as props
+        props: {}, 
     };
 }
 

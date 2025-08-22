@@ -94,8 +94,6 @@ const updateNote = async (req, res) =>
     {
       return res.status(404).json({ message: 'Note not found' });
     }
-    // Update note data
-    // Save the updated note
     const updatedNote = await existingNote.save();
 
     res.status(201).json(updatedNote);

@@ -5,7 +5,7 @@ export default function Document()
   return (
     <Html lang="en">
       <Head >
-        <title >NoteSync</title>
+        <title >RealtimeNotesApp</title>
       </Head>
       <body>
         <Main />

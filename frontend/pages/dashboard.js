@@ -1,128 +1,308 @@
-"use client";
-import Navbar from '@/components/Navbar';
-import Sidebar from '@/components/Sidebar';
-import { UserAuth } from '@/utils/auth';
-import React, { useEffect, useState } from 'react';
-import Card from '@/components/Card';
-import { MdAdd } from 'react-icons/md';
-import Loading from '@/components/Loading';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import axios from 'axios';
-import publicUrl from '@/utils/publicUrl';
-import { initialData } from '@/constants/data';
-import { useRouter } from 'next/router';
-import useNotesStore from '@/store/notesStore';
-import { Outfit } from 'next/font/google';
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
+import { auth, db } from "../utils/firebase";
+import {
+  onAuthStateChanged,
+  signOut
+} from "firebase/auth";
+import {
+  addDoc,
+  arrayUnion,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where
+} from "firebase/firestore";
 
+export default function Dashboard() {
+  const router = useRouter();
 
-const outfit = Outfit({ subsets: ['latin'] });
-const Dashboard = () =>
-{
+  // UI state
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [user, setUser] = useState(null);
 
-    const router = useRouter();
-    const { user, setUser, signOut } = UserAuth();
-    const { notes, category, setNotes } = useNotesStore();
-    const [notesData, setNotesData] = useState([]);
+  const [newText, setNewText] = useState("");
+  const [notes, setNotes] = useState([]);
+  const [shareEmail, setShareEmail] = useState("");
 
-    useEffect(() =>
-    {
-        console.log(user);
-        const fetchData = async () =>
-        {
-            console.log(user);
-            if (user)
-            {
-                const res = await axios.get(`${publicUrl()}/get-notes/${user.uid}`);
-                const data = await res.data;
-                console.log(data);
-                setNotes(data);
-                setNotesData(data);
-            }
-        };
+  // edit state
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState("");
+  const [showHistoryFor, setShowHistoryFor] = useState(null);
 
-        fetchData();
-    }, []);
+  // 1) Ensure user is logged in
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (!u) {
+        router.push("/"); // back to login if not signed in
+      } else {
+        setUser(u);
+      }
+      setLoadingUser(false);
+    });
+    return () => unsub();
+  }, [router]);
 
-    const handleNewNote = async () =>
-    {
-        const docId = Math.floor(Math.random() * 10000000);
-        try
-        {
-            const res = await axios.post(`${publicUrl()}/note`, {
-                docId: docId.toString(),
-                title: "New Note",
-                content: initialData,
-                uid: user.uid,
-                category: "frontend",
-                tags: ["tag"]
-            });
-            console.log(res);
-            router.push(`/edit/${docId}`);
-        } catch (error)
-        {
-            console.log(error);
-            return;
+  // 2) Real-time notes (owner + sharedWith)
+  useEffect(() => {
+    if (!user) return;
 
-        }
-    };
-
-
-    //handle filter
-    useEffect(() =>
-    {
-        if (!category) return setNotesData(notes);
-        const filterNotes = async () =>
-        {
-            //filter notes array 
-            const filteredNotes = await notes.filter((note) => note.category === category.title);
-            setNotesData(filteredNotes);
-            console.log("Data From Server");
-            console.log(notes);
-        };
-        filterNotes();
-        console.log(notesData);
-    }, [category]);
-
-    return (
-        <>
-            {
-                user ?
-                    <main className={`${outfit.className} conatiner flex bg-gray-100 h-screen dark:bg-gray-800 `}>
-                        <Sidebar />
-                        <div className="w-full overflow-y-scroll ">
-                            <Navbar />
-                            {/* Heading Section */}
-                            <Header count={notesData.length} />
-                            {/* Notes Section */}
-                            <div className="notes px-6 py-4 min-h-[70vh] items-start mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {/* Add New Note */}
-                                <button onClick={handleNewNote}>
-                                    <div className=" cursor-pointer note-card flex items-center justify-center bg-white dark:bg-gray-900 rounded-lg shadow-md flex-col p-4">
-                                        <div className="border-2 flex items-center justify-center border-dashed border-blue-400 rounded-full h-28 w-28">
-                                            <MdAdd className='text-3xl' />
-                                        </div>
-                                        <p className='text-blue-400 font-medium mt-4'>Add Note</p>
-                                    </div>
-                                </button>
-                                {
-                                    notesData.map((note) =>
-                                    {
-                                        return <Card key={note._id} id={note.docId} category={note.category} title={note.title} content={note.content[1].content.text} timestamp={note.timestamp} displayName={user.displayName} preview={note.preview} />;
-                                    })
-                                }
-                            </div>
-                            <Footer />
-                        </div>
-                    </main >
-                    :
-                    <Loading />
-
-            }
-        </>
+    // Listener 1: notes owned by me
+    const qOwned = query(
+      collection(db, "notes"),
+      where("owner", "==", user.uid)
     );
-};
+    const unsubOwned = onSnapshot(qOwned, (snap) => {
+      setNotes((prev) => {
+        const prevById = new Map(prev.map((n) => [n.id, n]));
+        snap.docs.forEach((d) => prevById.set(d.id, { id: d.id, ...d.data() }));
+        return Array.from(prevById.values());
+      });
+    });
 
-export default Dashboard
+    // Listener 2: notes shared WITH my email
+    const qShared = query(
+      collection(db, "notes"),
+      where("sharedWith", "array-contains", user.email)
+    );
+    const unsubShared = onSnapshot(qShared, (snap) => {
+      setNotes((prev) => {
+        const prevById = new Map(prev.map((n) => [n.id, n]));
+        snap.docs.forEach((d) => prevById.set(d.id, { id: d.id, ...d.data() }));
+        return Array.from(prevById.values());
+      });
+    });
 
+    return () => {
+      unsubOwned();
+      unsubShared();
+    };
+  }, [user]);
 
+  // Sorted notes (latest updated first)
+  const sortedNotes = useMemo(() => {
+    return [...notes].sort((a, b) => {
+      const ta = a.updatedAt?.seconds || a.createdAt?.seconds || 0;
+      const tb = b.updatedAt?.seconds || b.createdAt?.seconds || 0;
+      return tb - ta;
+    });
+  }, [notes]);
+
+  // 3) Add a new note (owner = me)
+  const handleAdd = async () => {
+    if (!newText.trim() || !user) return;
+
+    await addDoc(collection(db, "notes"), {
+      text: newText.trim(),
+      owner: user.uid,
+      ownerEmail: user.email,
+      sharedWith: [],            // collaborators (emails)
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      history: []                // we’ll push snapshots on edit
+    });
+
+    setNewText("");
+  };
+
+  // 4) Begin editing a note
+  const beginEdit = (note) => {
+    setEditingId(note.id);
+    setEditingText(note.text || "");
+  };
+
+  // 5) Save edit (also push previous version to history)
+  const saveEdit = async () => {
+    if (!editingId || !editingText.trim()) return;
+
+    const ref = doc(db, "notes", editingId);
+
+    // Get current doc to capture previous text for history
+    const snap = await getDoc(ref);
+    const current = snap.data();
+
+    await updateDoc(ref, {
+      text: editingText.trim(),
+      updatedAt: serverTimestamp(),
+      history: arrayUnion({
+        text: current?.text ?? "",
+        editedBy: user?.email ?? "unknown",
+        editedAt: new Date().toISOString()
+      })
+    });
+
+    setEditingId(null);
+    setEditingText("");
+  };
+
+  // 6) Delete (only owner can delete)
+  const handleDelete = async (note) => {
+    if (!user) return;
+    if (note.owner !== user.uid) {
+      alert("Only the owner can delete this note.");
+      return;
+    }
+    await deleteDoc(doc(db, "notes", note.id));
+  };
+
+  // 7) Share by email (adds to sharedWith)
+  const handleShare = async (note) => {
+    if (!user) return;
+    if (note.owner !== user.uid) {
+      alert("Only the owner can share this note.");
+      return;
+    }
+    if (!shareEmail || !shareEmail.includes("@")) {
+      alert("Please enter a valid email.");
+      return;
+    }
+    await updateDoc(doc(db, "notes", note.id), {
+      sharedWith: arrayUnion(shareEmail.trim().toLowerCase())
+    });
+    setShareEmail("");
+    alert(`Shared with ${shareEmail}`);
+  };
+
+  // 8) Logout
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push("/");
+  };
+
+  if (loadingUser) return <p style={{ padding: 20 }}>Loading...</p>;
+
+  return (
+    <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <h1>RealtimeNotesApp — Dashboard</h1>
+        <div>
+          <span style={{ marginRight: 12 }}>{user?.email}</span>
+          <button onClick={handleLogout}>Logout</button>
+        </div>
+      </div>
+
+      {/* Create */}
+      <div style={{ marginTop: 16, padding: 12, border: "1px solid #ddd", borderRadius: 8 }}>
+        <h3>Create a new note</h3>
+        <textarea
+          rows={3}
+          style={{ width: "100%", padding: 8 }}
+          placeholder="Write your note..."
+          value={newText}
+          onChange={(e) => setNewText(e.target.value)}
+        />
+        <div style={{ marginTop: 8 }}>
+          <button onClick={handleAdd}>Add Note</button>
+        </div>
+      </div>
+
+      {/* Notes list */}
+      <h2 style={{ marginTop: 24 }}>Your & Shared Notes</h2>
+      {sortedNotes.length === 0 && <p>No notes yet. Create one above!</p>}
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {sortedNotes.map((n) => {
+          const iOwnIt = n.owner === user?.uid;
+          const updated =
+            n.updatedAt?.toDate?.().toLocaleString?.() ||
+            n.createdAt?.toDate?.().toLocaleString?.() ||
+            "";
+
+          return (
+            <div key={n.id} style={{ border: "1px solid #eee", borderRadius: 8, padding: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>
+                    Owner: {n.ownerEmail || "Unknown"} {iOwnIt ? "(You)" : ""}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>
+                    Shared with: {n.sharedWith?.length ? n.sharedWith.join(", ") : "—"}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>Last updated: {updated}</div>
+                </div>
+
+                {/* Share input (only owner can share) */}
+                {iOwnIt && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="email"
+                      placeholder="share user email"
+                      value={shareEmail}
+                      onChange={(e) => setShareEmail(e.target.value)}
+                      style={{ padding: 6 }}
+                    />
+                    <button onClick={() => handleShare(n)}>Share</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Text or Edit box */}
+              <div style={{ marginTop: 10 }}>
+                {editingId === n.id ? (
+                  <>
+                    <textarea
+                      rows={3}
+                      style={{ width: "100%", padding: 8 }}
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                    />
+                    <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                      <button onClick={saveEdit}>Save</button>
+                      <button onClick={() => { setEditingId(null); setEditingText(""); }}>Cancel</button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ whiteSpace: "pre-wrap" }}>{n.text}</div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                {editingId === n.id ? null : (
+                  <button onClick={() => beginEdit(n)}>Edit</button>
+                )}
+                <button onClick={() => setShowHistoryFor(showHistoryFor === n.id ? null : n.id)}>
+                  {showHistoryFor === n.id ? "Hide History" : "View History"}
+                </button>
+                <button
+                  onClick={() => handleDelete(n)}
+                  style={{ color: iOwnIt ? "red" : "#aaa", cursor: iOwnIt ? "pointer" : "not-allowed" }}
+                  disabled={!iOwnIt}
+                  title={iOwnIt ? "Delete note" : "Only owner can delete"}
+                >
+                  Delete
+                </button>
+              </div>
+
+              {/* History */}
+              {showHistoryFor === n.id && (
+                <div style={{ marginTop: 10, background: "#fafafa", padding: 10, borderRadius: 6 }}>
+                  <b>History</b>
+                  {!n.history || n.history.length === 0 ? (
+                    <div style={{ fontSize: 12, opacity: 0.7 }}>No previous versions.</div>
+                  ) : (
+                    <ul style={{ marginTop: 6 }}>
+                      {[...n.history].reverse().slice(0, 5).map((h, idx) => (
+                        <li key={idx} style={{ marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, opacity: 0.8 }}>
+                            {h.editedBy} — {new Date(h.editedAt).toLocaleString()}
+                          </div>
+                          <div style={{ whiteSpace: "pre-wrap" }}>{h.text}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
